@@ -154,4 +154,52 @@ Reproduce with: `gradlew :lucene:core:test --tests "org.apache.lucene.codecs.Tes
 
 # SUCCESSFUL UNIT TEST DETAILS
 
-> Here, post output once the lastOrd behavior is fixed with the previously failing unit test now passing.
+Test location: `lucene/core/src/test/org/apache/lucene/codecs/TestMergedByteVectorValues.java`
+
+```
+> Task :lucene:core:test
+WARNING: Using incubator modules: jdk.incubator.vector
+:lucene:core:test (SUCCESS): 1 test
+
+BUILD SUCCESSFUL in 19s
+```
+
+Reproduce with: `gradlew :lucene:core:test --tests "org.apache.lucene.codecs.TestMergedByteVectorValues.testSkipThenLoadByteVectorDuringMerge"`
+
+# SUMMARY OF TEST CASE
+
+The test `testSkipThenLoadByteVectorDuringMerge` verifies the skip-then-load pattern used in multipart upload scenarios:
+
+1. Creates two segments with 3 byte vectors each (6 total)
+2. Uses a custom `KnnVectorsFormat` to intercept the merge operation
+3. During merge, gets `MergedByteVectorValues` and:
+   - Calls `nextDoc()` 4 times to skip to the 4th vector (index 3)
+   - Calls `vectorValue(3)` to load the vector at that position
+4. Verifies the vector content is correct (`{3, 4}`)
+
+This pattern fails without the fix because `lastOrd` stays at `-1` after skipping.
+
+# SUMMARY OF CHANGES
+
+**File:** `lucene/core/src/java/org/apache/lucene/codecs/KnnVectorsWriter.java`
+
+**Changes to `MergedByteVectorValues` inner class:**
+
+1. **`nextDoc()` method** - Added `++lastOrd;` to increment `lastOrd` when advancing:
+   ```java
+   } else {
+     docId = current.mappedDocID;
+     ++lastOrd;  // <-- Added this line
+     ++index;
+   }
+   ```
+
+2. **`vectorValue(int ord)` method** - Changed check from `ord != lastOrd + 1` to `ord != lastOrd`:
+   ```java
+   if (ord != lastOrd) {  // Was: if (ord != lastOrd + 1)
+     throw new IllegalStateException(...);
+   }
+   // Removed: lastOrd = ord; (no longer needed since nextDoc increments it)
+   ```
+
+This mirrors the correct behavior already present in `MergedFloat32VectorValues`.
