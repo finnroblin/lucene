@@ -140,7 +140,17 @@ The Task is the following:
 
 # FAILING UNIT TEST DETAILS
 
-> Here, post output of the failing test and the test location.
+Test location: `lucene/core/src/test/org/apache/lucene/codecs/TestMergedByteVectorValues.java`
+
+```
+java.lang.AssertionError: Test failed during merge
+    Caused by:
+    java.lang.IllegalStateException: only supports forward iteration: ord=3, lastOrd=-1
+        at org.apache.lucene.codecs.KnnVectorsWriter$MergedVectorValues$MergedByteVectorValues.vectorValue(KnnVectorsWriter.java:418)
+        at org.apache.lucene.codecs.TestMergedByteVectorValues$1$1.mergeOneField(TestMergedByteVectorValues.java:138)
+```
+
+Reproduce with: `gradlew :lucene:core:test --tests "org.apache.lucene.codecs.TestMergedByteVectorValues.testSkipThenLoadByteVectorDuringMerge"`
 
 # SUCCESSFUL UNIT TEST DETAILS
 
